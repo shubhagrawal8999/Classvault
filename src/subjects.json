@@ -1,0 +1,60 @@
+[
+  {
+    "id": "physics",
+    "name": "Physics",
+    "units": [
+      {
+        "id": "wave-optics-unit-1",
+        "title": "Unit 1: Wave Optics",
+        "fileName": "unit1- wave optics (1).pdf"
+      },
+      {
+        "id": "wave-optics-unit-1-continued",
+        "title": "Unit 1: Wave Optics (continued)",
+        "fileName": "unit 1 (continue) (1).pdf"
+      },
+      {
+        "id": "laser-unit-2",
+        "title": "Unit 2: Laser",
+        "fileName": "Unit 2 - Laser (1).pdf"
+      }
+    ]
+  },
+  {
+    "id": "mathematics-1",
+    "name": "MATHEMATICS -1",
+    "units": []
+  },
+  {
+    "id": "basic-electrical-engineering",
+    "name": "Basic Electrical Engineering (BEE)",
+    "units": [
+      {
+        "id": "bee-handbook",
+        "title": "BEE Handbook",
+        "fileName": "FEE-BEE Handbook - RSG - FEBTech 2026 - Circulation.pdf"
+      }
+    ]
+  },
+  {
+    "id": "fundamentals-of-programming",
+    "name": "Fundamentals of Programming",
+    "units": [
+      {
+        "id": "programming-unit-1",
+        "title": "Unit 1: Fundamentals of Programming",
+        "fileName": "Unit 1 notes _CPC.docx.pdf"
+      },
+      {
+        "id": "programming-unit-2",
+        "title": "Unit 2: Operators",
+        "fileName": "Unit 2 Operators.docx"
+      }
+    ]
+  },
+  {
+    "id": "engineering-drawing",
+    "name": "Engineering Drawing (ED)",
+    "units": []
+  }
+]
