@@ -1,29 +1,48 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   BookOpen,
   Download,
-  FileText,
-  Home,
-  Library,
   Moon,
   Search,
   Sun,
   X,
 } from 'lucide-react'
 import { renderAsync } from 'docx-preview'
-import { subjects, type Subject, type Unit } from './data'
+import { subjects, type Question, type Subject, type Unit } from './mockData'
 
 type Theme = 'light' | 'dark'
+type Page = 'home' | 'notes' | 'questions'
+type SubjectFilter = 'all' | 'physics' | 'c-programming' | 'bee'
 
 interface SelectedMaterial {
   subject: Subject
   unit: Unit
 }
 
+const filters: { id: SubjectFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'physics', label: 'Physics' },
+  { id: 'c-programming', label: 'C Programming' },
+  { id: 'bee', label: 'BEE' },
+]
+
 function getInitialTheme(): Theme {
   const savedTheme = localStorage.getItem('classvault-theme')
   if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+function getPage(): Page {
+  if (window.location.pathname === '/notes') return 'notes'
+  if (window.location.pathname === '/questions') return 'questions'
+  return 'home'
+}
+
+function getInitialFilter(): SubjectFilter {
+  const subject = new URLSearchParams(window.location.search).get('subject')
+  return filters.some((filter) => filter.id === subject)
+    ? (subject as SubjectFilter)
+    : 'all'
 }
 
 function fileUrl(fileName: string) {
@@ -125,7 +144,6 @@ function MaterialReader({
         <div className="reader-heading">
           <span className="reader-subject">{material.subject.name}</span>
           <h2 id="reader-title">{material.unit.title}</h2>
-          <span className="reader-filename">{material.unit.fileName}</span>
         </div>
         <div className="reader-actions">
           <a
@@ -147,7 +165,7 @@ function MaterialReader({
       >
         {isPdf ? (
           <>
-            {!pdfLoaded && <p className="reader-loading" role="status">Loading PDF…</p>}
+            {!pdfLoaded && <p className="reader-loading" role="status">Loading notes…</p>}
             <iframe
               className="pdf-frame"
               src={fileUrl(material.unit.fileName)}
@@ -163,50 +181,361 @@ function MaterialReader({
   )
 }
 
-function App() {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme)
+function SearchField({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+}) {
+  return (
+    <label className="search-field">
+      <Search size={20} aria-hidden="true" />
+      <input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        aria-label="Search notes and questions"
+      />
+    </label>
+  )
+}
+
+function FilterChips({
+  selected,
+  onSelect,
+}: {
+  selected: SubjectFilter
+  onSelect: (filter: SubjectFilter) => void
+}) {
+  return (
+    <div className="filter-chips" aria-label="Filter by subject">
+      {filters.map((filter) => (
+        <button
+          className={`filter-chip${selected === filter.id ? ' is-selected' : ''}`}
+          key={filter.id}
+          type="button"
+          aria-pressed={selected === filter.id}
+          onClick={() => onSelect(filter.id)}
+        >
+          {filter.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function HomePage() {
   const [query, setQuery] = useState('')
+  const [showFirstVisitContent] = useState(() => localStorage.getItem('cv_seen') !== '1')
+
+  useEffect(() => {
+    localStorage.setItem('cv_seen', '1')
+  }, [])
+
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const search = query.trim()
+    window.location.href = search ? `/notes?q=${encodeURIComponent(search)}` : '/notes'
+  }
+
+  return (
+    <>
+      <main className="home-content">
+        <section className="hero" aria-labelledby="home-title">
+          <h1 id="home-title">Everything for the next exam. One place.</h1>
+          <p className="hero-subhead">AI/DS · Semester 1 · N division</p>
+          <form className="hero-search" onSubmit={submitSearch}>
+            <Search size={22} aria-hidden="true" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={'Search a topic — "wave optics", "pointers"'}
+              aria-label="Search a topic"
+            />
+            <button type="submit" aria-label="Search">
+              <span>Search</span>
+            </button>
+          </form>
+          <div className="hero-actions">
+            <a className="primary-button" href="/notes">Open notes</a>
+            <a className="secondary-button" href="/questions">Important questions</a>
+          </div>
+        </section>
+
+        {showFirstVisitContent && (
+          <div className="first-visit-content">
+            <section className="how-section" aria-labelledby="how-title">
+              <h2 id="how-title">How this helps</h2>
+              <p>Find notes and questions by subject or topic.</p>
+              <p>Review key questions with answers when you need them.</p>
+              <p>Open a unit’s notes directly from its questions.</p>
+            </section>
+
+            <section className="faq-section" aria-labelledby="faq-title">
+              <h2 id="faq-title">Frequently asked questions</h2>
+              <details>
+                <summary>Where do I find notes for a subject?</summary>
+                <p>Open notes and choose a subject filter to browse its units.</p>
+              </details>
+              <details>
+                <summary>Can I search by a topic?</summary>
+                <p>Yes. Search notes or questions by topic, unit or subject name.</p>
+              </details>
+              <details>
+                <summary>How do I download a unit?</summary>
+                <p>Use the Download button beside a unit on the notes page.</p>
+              </details>
+              <details>
+                <summary>Where can I find answers?</summary>
+                <p>Open important questions and choose Show answer on a question.</p>
+              </details>
+              <details>
+                <summary>Can I open notes from a question?</summary>
+                <p>Each question unit includes a link to its notes.</p>
+              </details>
+              <details>
+                <summary>Does dark mode stay on?</summary>
+                <p>Your theme choice is saved on this device.</p>
+              </details>
+            </section>
+          </div>
+        )}
+      </main>
+    </>
+  )
+}
+
+function NotesPage({
+  query,
+  setQuery,
+  selectedFilter,
+  setSelectedFilter,
+  openMaterial,
+  selectedUnit,
+}: {
+  query: string
+  setQuery: (value: string) => void
+  selectedFilter: SubjectFilter
+  setSelectedFilter: (filter: SubjectFilter) => void
+  openMaterial: (subject: Subject, unit: Unit) => void
+  selectedUnit: string | null
+}) {
+  const normalizedQuery = query.trim().toLowerCase()
+  const visibleSubjects = useMemo(
+    () =>
+      subjects.flatMap((subject) => {
+        if (selectedFilter !== 'all' && subject.id !== selectedFilter) return []
+        const matchingUnits = subject.units.filter((unit) =>
+          (!selectedUnit || unit.id === selectedUnit) &&
+          `${subject.name} ${unit.title} ${unit.fileName}`.toLowerCase().includes(normalizedQuery),
+        )
+        return matchingUnits.length ? [{ subject, units: matchingUnits }] : []
+      }),
+    [normalizedQuery, selectedFilter, selectedUnit],
+  )
+
+  return (
+    <main className="content-page">
+      <div className="page-heading">
+        <p className="page-eyebrow">Study materials</p>
+        <h1>Notes</h1>
+        <p>Browse notes by subject or find a unit by name.</p>
+      </div>
+      <div className="page-tools">
+        <SearchField value={query} onChange={setQuery} placeholder="Search notes" />
+        <FilterChips selected={selectedFilter} onSelect={setSelectedFilter} />
+      </div>
+      <div className="group-list">
+        {visibleSubjects.map(({ subject, units }) => (
+          <section className="subject-group" key={subject.id} aria-labelledby={`notes-${subject.id}`}>
+            <div className="group-heading">
+              <h2 id={`notes-${subject.id}`}>{subject.name}</h2>
+              <span>{units.length} {units.length === 1 ? 'unit' : 'units'}</span>
+            </div>
+            <div className="unit-list">
+              {units.map((unit) => (
+                <article className="notes-unit-row" key={unit.id}>
+                  <div className="unit-details">
+                    <h3>{unit.title}</h3>
+                    <span>{unit.pageCount} pages</span>
+                    <a
+                      className="unit-cross-link"
+                      href={`/questions?subject=${encodeURIComponent(subject.id)}&unit=${encodeURIComponent(unit.id)}`}
+                    >
+                      Questions from this unit <span aria-hidden="true">→</span>
+                    </a>
+                  </div>
+                  <div className="unit-actions">
+                    <button className="small-primary-button" type="button" onClick={() => openMaterial(subject, unit)}>
+                      Open
+                    </button>
+                    <a
+                      className="small-secondary-button"
+                      href={fileUrl(unit.fileName)}
+                      download={unit.fileName}
+                    >
+                      <Download size={16} aria-hidden="true" />
+                      Download
+                    </a>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ))}
+        {visibleSubjects.length === 0 && (
+          <p className="empty-state" role="status">No notes match this search.</p>
+        )}
+      </div>
+    </main>
+  )
+}
+
+function AnswerToggle({ question }: { question: Question }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const answerId = `answer-${question.id}`
+  return (
+    <div className="answer-control">
+      <button
+        className="answer-toggle"
+        type="button"
+        aria-expanded={isOpen}
+        aria-controls={answerId}
+        onClick={() => setIsOpen((open) => !open)}
+      >
+        {isOpen ? 'Hide answer' : 'Show answer'}
+      </button>
+      {isOpen && <p className="answer-text" id={answerId}>{question.answer}</p>}
+    </div>
+  )
+}
+
+function PriorityDots({ priority }: { priority: Question['priority'] }) {
+  return (
+    <span className="priority-dots" aria-label={`Priority ${priority}`}>
+      {[1, 2, 3].map((dot) => (
+        <span className={dot <= priority ? 'dot is-filled' : 'dot'} key={dot} aria-hidden="true" />
+      ))}
+    </span>
+  )
+}
+
+function QuestionsPage({
+  query,
+  setQuery,
+  selectedFilter,
+  setSelectedFilter,
+  selectedUnit,
+}: {
+  query: string
+  setQuery: (value: string) => void
+  selectedFilter: SubjectFilter
+  setSelectedFilter: (filter: SubjectFilter) => void
+  selectedUnit: string | null
+}) {
+  const normalizedQuery = query.trim().toLowerCase()
+  const visibleSubjects = useMemo(
+    () =>
+      subjects.flatMap((subject) => {
+        if (selectedFilter !== 'all' && subject.id !== selectedFilter) return []
+        let units = subject.units
+        if (selectedUnit) units = units.filter((unit) => unit.id === selectedUnit)
+        const matchingUnits = units.flatMap((unit) => {
+          const questions = unit.questions.filter((question) =>
+            `${subject.name} ${unit.title} ${question.text} ${question.answer}`.toLowerCase().includes(normalizedQuery),
+          )
+          return questions.length ? [{ ...unit, questions }] : []
+        })
+        return matchingUnits.length ? [{ subject, units: matchingUnits }] : []
+      }),
+    [normalizedQuery, selectedFilter, selectedUnit],
+  )
+
+  return (
+    <main className="content-page">
+      <div className="page-heading">
+        <p className="page-eyebrow">Practice and review</p>
+        <h1>Important questions</h1>
+        <p>Questions are grouped by subject and unit. Answers stay hidden until you open them.</p>
+      </div>
+      <div className="page-tools">
+        <SearchField value={query} onChange={setQuery} placeholder="Search questions" />
+        <FilterChips selected={selectedFilter} onSelect={setSelectedFilter} />
+      </div>
+      <div className="group-list">
+        {visibleSubjects.map(({ subject, units }) => (
+          <section className="subject-group" key={subject.id} aria-labelledby={`questions-${subject.id}`}>
+            <div className="group-heading">
+              <h2 id={`questions-${subject.id}`}>{subject.name}</h2>
+            </div>
+            {units.map((unit) => (
+              <section className="question-unit" key={unit.id} aria-labelledby={`unit-${unit.id}`}>
+                <h3 id={`unit-${unit.id}`}>{unit.title}</h3>
+                <div className="question-list">
+                  {unit.questions.map((question) => (
+                    <article className="question-row" key={question.id}>
+                      <PriorityDots priority={question.priority} />
+                      <div className="question-content">
+                        <p className="question-text">{question.text}</p>
+                        <span className="question-marks">{question.marks} {question.marks === 1 ? 'mark' : 'marks'}</span>
+                        <AnswerToggle question={question} />
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                <a
+                  className="unit-cross-link notes-cross-link"
+                  href={`/notes?subject=${encodeURIComponent(subject.id)}&unit=${encodeURIComponent(unit.id)}`}
+                >
+                  Read the notes for this unit <span aria-hidden="true">→</span>
+                </a>
+              </section>
+            ))}
+          </section>
+        ))}
+        {visibleSubjects.length === 0 && (
+          <p className="empty-state" role="status">
+            {selectedUnit ? 'No questions match this unit and search.' : 'No questions match this search.'}
+          </p>
+        )}
+      </div>
+    </main>
+  )
+}
+
+function App() {
+  const page = getPage()
+  const [theme, setTheme] = useState<Theme>(getInitialTheme)
+  const [query, setQuery] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
+  const [selectedFilter, setSelectedFilter] = useState<SubjectFilter>(getInitialFilter)
   const [selectedMaterial, setSelectedMaterial] = useState<SelectedMaterial | null>(null)
+  const selectedUnit = new URLSearchParams(window.location.search).get('unit')
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     localStorage.setItem('classvault-theme', theme)
     document.querySelector('meta[name="theme-color"]')?.setAttribute(
       'content',
-      theme === 'dark' ? '#0E1116' : '#FAFAF9',
+      theme === 'dark' ? '#292521' : '#f7f4ee',
     )
   }, [theme])
-
-  const normalizedQuery = query.trim().toLowerCase()
-  const visibleSubjects = useMemo(
-    () =>
-      subjects.flatMap((subject) => {
-        const subjectMatches = subject.name.toLowerCase().includes(normalizedQuery)
-        const matchingUnits = subject.units.filter((unit) =>
-          `${unit.title} ${unit.fileName}`.toLowerCase().includes(normalizedQuery),
-        )
-
-        if (normalizedQuery && !subjectMatches && matchingUnits.length === 0) return []
-        return [{
-          subject,
-          units: normalizedQuery && !subjectMatches ? matchingUnits : subject.units,
-        }]
-      }),
-    [normalizedQuery],
-  )
-
-  const unitCount = subjects.reduce((total, subject) => total + subject.units.length, 0)
 
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a className="brand" href="#home" aria-label="ClassVault home">
+        <a className="brand" href="/" aria-label="ClassVault home">
           <span className="brand-mark" aria-hidden="true"><BookOpen size={19} /></span>
-          <span className="brand-name">Class<span>Vault</span></span>
+          <span className="brand-name">ClassVault</span>
         </a>
         <nav className="desktop-nav" aria-label="Main navigation">
-          <a href="#home">Home</a>
-          <a href="#subjects">Subjects</a>
+          <a href="/">Home</a>
+          <a href="/notes">Notes</a>
+          <a href="/questions">Questions</a>
         </nav>
         <button
           className="theme-toggle"
@@ -219,121 +548,31 @@ function App() {
         </button>
       </header>
 
-      <main id="home" className="main-content">
-        <section className="page-intro" aria-labelledby="page-title">
-          <p className="eyebrow">YOUR CLASS NOTES</p>
-          <h1 id="page-title">Your course library</h1>
-          <p>Find a subject, open your notes, and study at your own pace.</p>
-          <div className="library-summary">
-            <span>{subjects.length} subjects</span>
-            <span aria-hidden="true">·</span>
-            <span>{unitCount} units with notes</span>
-          </div>
-        </section>
+      {page === 'home' && <HomePage />}
+      {page === 'notes' && (
+        <NotesPage
+          query={query}
+          setQuery={setQuery}
+          selectedFilter={selectedFilter}
+          setSelectedFilter={setSelectedFilter}
+          openMaterial={(subject, unit) => setSelectedMaterial({ subject, unit })}
+          selectedUnit={selectedUnit}
+        />
+      )}
+      {page === 'questions' && (
+        <QuestionsPage
+          query={query}
+          setQuery={setQuery}
+          selectedFilter={selectedFilter}
+          setSelectedFilter={setSelectedFilter}
+          selectedUnit={selectedUnit}
+        />
+      )}
 
-        <section className="library-section" id="subjects" aria-labelledby="subjects-heading">
-          <div className="section-heading">
-            <div>
-              <p className="section-kicker">YOUR COURSES</p>
-              <h2 id="subjects-heading">Subjects</h2>
-            </div>
-            <label className="search-box">
-              <Search size={18} aria-hidden="true" />
-              <input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search subjects, units, notes..."
-                aria-label="Search subjects, units, and notes"
-              />
-            </label>
-          </div>
-
-          {visibleSubjects.length ? (
-            <div className="subject-grid">
-              {visibleSubjects.map(({ subject, units }) => (
-                <article className="subject-card" key={subject.id}>
-                  <header className="subject-card-header">
-                    <span
-                      className="subject-symbol"
-                      aria-hidden="true"
-                    >
-                      <FileText size={19} />
-                    </span>
-                    <div className="subject-heading">
-                      <h3>{subject.name}</h3>
-                      <span>{subject.units.length} {subject.units.length === 1 ? 'unit with notes' : 'units with notes'}</span>
-                    </div>
-                  </header>
-
-                  {units.length ? (
-                    <ul className="material-list">
-                      {units.map((unit) => (
-                        <li className="material-row" key={unit.id}>
-                          <div className="material-info">
-                            <span className="material-title">{unit.title}</span>
-                            <span className="material-filename">{unit.fileName}</span>
-                          </div>
-                          <div className="material-actions">
-                            <button
-                              className="read-button"
-                              type="button"
-                              onClick={() => setSelectedMaterial({ subject, unit })}
-                            >
-                              <BookOpen size={15} />
-                              <span>Read</span>
-                            </button>
-                            <a
-                              className="download-link"
-                              href={fileUrl(unit.fileName)}
-                              download={unit.fileName}
-                              aria-label={`Download ${unit.title}`}
-                              title="Download material"
-                            >
-                              <Download size={17} />
-                            </a>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="empty-subject">
-                      {normalizedQuery
-                        ? subject.units.length
-                          ? 'No matching units in this subject.'
-                          : 'This subject has no units yet.'
-                        : 'Units and notes for this subject are coming soon.'}
-                    </p>
-                  )}
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-search" role="status">
-              <p>No subjects or units match “{query}”.</p>
-              <button className="clear-search" type="button" onClick={() => setQuery('')}>
-                Clear search
-              </button>
-            </div>
-          )}
-        </section>
-
-        <footer className="page-footer">
-          <span>ClassVault</span>
-          <span>Read online or download your notes for later.</span>
-        </footer>
-      </main>
-
-      <nav className="mobile-tab-bar" aria-label="Main navigation">
-        <a href="#home">
-          <Home size={20} aria-hidden="true" />
-          <span>Home</span>
-        </a>
-        <a href="#subjects">
-          <Library size={20} aria-hidden="true" />
-          <span>Subjects</span>
-        </a>
-      </nav>
+      <footer className="page-footer">
+        <span>ClassVault</span>
+        <span>Notes and questions for your next study session.</span>
+      </footer>
 
       {selectedMaterial && (
         <MaterialReader
